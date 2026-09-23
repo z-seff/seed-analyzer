@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: pytoniq-core-fork
+Version: 0.1.48
+Summary: TON Blockchain SDK
+Author-email: Maksim Kurbatov <cyrbatoff@gmail.com>, Emanuele Bellocchia <ebellocchia@gmail.com>
+Project-URL: Homepage, https://github.com/ebellocchia/pytoniq-core
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: bitarray>=2.6.0
+Requires-Dist: x25519>=0.0.2
+Requires-Dist: PyNaCl>=1.5.0
+Requires-Dist: pycryptodomex>=3.18.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: typing_extensions
+Dynamic: license-file
+
+# pytoniq-core
+
+This is a fork of [pytoniq-core](https://github.com/yungwine/pytoniq-core). It extends compatibility to Python 3.7, 3.8, and 3.9, as the original package strictly requires Python >= 3.10.
+
+[![PyPI version](https://badge.fury.io/py/pytoniq-core.svg)](https://badge.fury.io/py/pytoniq-core)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytoniq-core)](https://pypi.org/project/pytoniq-core/)
+![](https://pepy.tech/badge/pytoniq-core)
+[![Downloads](https://static.pepy.tech/badge/pytoniq-core)](https://pepy.tech/project/pytoniq-core)
+[![](https://img.shields.io/badge/%F0%9F%92%8E-TON-grey)](https://ton.org)
+
+## Installation
+
+```bash
+pip install pytoniq-core
+```
+
+## Examples
+
+You can find them in the [/examples](/examples) folder.
+
+## Donations
+
+TON - `EQBvW8Z5huBkMJYdnfAEM5JqTNkuWX3diqYENkWsIL0XggGG`
+
+## Structure
+
+### boc
+
+* Cell
+* Slice
+* Builder
+* Hashmap
+* Address
+* Exotic cells
+
+### crypto
+
+* Cryptography for ADNL
+* Native fast crc functions
+* Keys, Mnemonics generation
+* Signatures creation and verifying
+
+### proof
+
+* Merkle proofs verifying - [article](https://docs.ton.org/develop/data-formats/proofs)
+
+### tl
+
+* [TL](https://core.telegram.org/mtproto/TL) automatic (de)serialization
+
+### tl-b
+
+* Almost all wrappers for schemes from [block.tlb](https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb)
+* Classes for popular custom tlb schemes

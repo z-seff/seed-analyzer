@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "skills": {
+    "xlsx": {
+      "source": "smithery.ai",
+      "sourceUrl": "https://smithery.ai/skills/anthropics/xlsx",
+      "sourceType": "well-known",
+      "computedHash": "5b25529e596ce36083af652cb49391b01682c3a058bee6c852a8ca4ef32ed8ae",
+      "wellKnownDigest": "sha256:afb5b4383e1ab374a7377703f6a652dd82c583ecac80e88e40413395e86a0958"
+    }
+  }
+}

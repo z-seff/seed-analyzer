@@ -1,0 +1,2 @@
+examples
+pytoniq_core
