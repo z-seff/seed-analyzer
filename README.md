@@ -10,7 +10,6 @@ Tron и Bitcoin и складывает результат в xlsx-отчёт.
 |------|------------|
 | `seed_analyzer.py` | сам скрипт |
 | `requirements.txt` | зависимости: `bip_utils`, `openpyxl`, `requests` |
-| `bip39-standalone-0.5.6.html` | офлайн-копия генератора iancoleman, источник дефолтов |
 
 ## Схемы деривации
 
@@ -28,9 +27,9 @@ Tron и Bitcoin и складывает результат в xlsx-отчёт.
 пути после `change`, у BIP32 и BIP141 — прямой потомок узла `m/0`.
 
 Пути и типы адресов для вкладок BIP32 и BIP141 взяты из дефолтов
-[iancoleman.io/bip39](https://iancoleman.io/bip39/) (`bip39-standalone-0.5.6.html`
-в этой папке): path `m/0`, script semantics «P2WPKH nested in P2SH».
-Номер account' у BIP44/49/84 меняется ключом `-a`.
+[iancoleman.io/bip39](https://iancoleman.io/bip39/): path `m/0`, script
+semantics «P2WPKH nested in P2SH». Номер account' у BIP44/49/84 меняется
+ключом `-a`.
 
 Деривация сверена с эталонными векторами BIP39 для фразы
 `abandon abandon ... about` — все адреса совпадают.
