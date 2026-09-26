@@ -1,4 +1,4 @@
-# Виртуальное окружение
+# Virtual environment
 .venv/
 venv/
 
@@ -6,11 +6,11 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Сгенерированные отчёты — содержат адреса, балансы и, при --with-keys,
-# приватные ключи. Не должны попадать в репозиторий.
+# Generated reports — contain addresses, balances and, with --with-keys,
+# private keys. Must not end up in the repository.
 *.xlsx
 
-# Seed-фраза, если она была сохранена в файл для -f/--mnemonic-file
+# Seed phrase, if it was saved to a file for -f/--mnemonic-file
 *.seed
 seed*.txt
 mnemonic*.txt
@@ -23,6 +23,9 @@ mnemonic*.txt
 .idea/
 .claude/
 
-# Офлайн-копия генератора iancoleman.io — большой файл (4.5 МБ),
-# кодом не используется, служит только справочником при разработке.
+# Offline copy of the iancoleman.io generator — a large file (4.5 MB),
+# not used by the code, kept only as a reference during development.
 bip39-standalone-*.html
+
+# Claude Code skills lockfile — local tooling state, not part of the project.
+skills-lock.json

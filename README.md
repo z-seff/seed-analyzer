@@ -4,10 +4,6 @@ The script takes a BIP39 seed phrase (12/15/18/21/24 words), derives the first N
 addresses for seven derivation schemes, checks balances via public RPCs across
 six EVM networks, Tron and Bitcoin, and writes the result to an xlsx report.
 
-> **Note:** the tool's own console output and the generated xlsx report are in
-> Russian (hardcoded strings/column headers). Only this documentation has been
-> translated to English; example output blocks below are reproduced verbatim.
-
 ## Contents
 
 | File | Purpose |
@@ -147,13 +143,11 @@ is printed when the run finishes.
 
 ### Progress indicator
 
-A network run prints a live line that updates in place (actual output, in Russian):
+A network run prints a live line that updates in place:
 
 ```
-[247/600]  41.2% | прошло 12м 21с | осталось ~17м 39с | с активами: 3
+[247/600]  41.2% | elapsed 12m 21s | remaining ~17m 39s | with assets: 3
 ```
-
-(`elapsed 12m 21s | remaining ~17m 39s | with assets: 3`)
 
 The remaining-time estimate is based on actual throughput rather than
 `--delay`, so it accounts for retries and slow RPCs. Only notable addresses
@@ -176,31 +170,26 @@ blue in the report and flagged in the "Status" column.
 The result notice is printed **twice**: right after address generation and
 again at the end of the run — otherwise it would get lost among hundreds of
 progress lines. For each searched address, a found/not-found line is printed
-with the scheme, path, index, and list of networks (actual output, in Russian):
+with the scheme, path, index, and list of networks:
 
 ```
 ──────────────────────────────────────────────────────────────────────────────
-ПОИСК --find: найдено 2 из 3 среди 600 сгенерированных адресов
+SEARCH --find: found 2 of 3 among 600 generated addresses
 ──────────────────────────────────────────────────────────────────────────────
-  ✓ НАЙДЕН      0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0
-                BIP44  m/44'/60'/0'/0/1  (индекс 1)
-                сети: Ethereum, Arbitrum, Base, Polygon, Avalanche, OP Mainnet
-                активы: Ethereum 0.05000000 ETH; Polygon USDC=120.000000
-  ✗ НЕ НАЙДЕН   0xdeadbeef00000000000000000000000000000000
-  Проверено 12 схемо-сетей × 50 адресов, account' = 0, passphrase не задан.
-  Если адрес всё же от этой фразы — увеличьте -n, проверьте -a и -p, а также набор сетей в -c.
+  ✓ FOUND      0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0
+                BIP44  m/44'/60'/0'/0/1  (index 1)
+                networks: Ethereum, Arbitrum, Base, Polygon, Avalanche, OP Mainnet
+                assets: Ethereum 0.05000000 ETH; Polygon USDC=120.000000
+  ✗ NOT FOUND  0xdeadbeef00000000000000000000000000000000
+  Checked 12 scheme/network combos × 50 addresses, account' = 0, passphrase not set.
+  If the address does belong to this phrase — increase -n, check -a and -p, and the network set in -c.
 ──────────────────────────────────────────────────────────────────────────────
 ```
-
-(`ПОИСК --find` = search results; `✓ НАЙДЕН` / `✗ НЕ НАЙДЕН` = found / not
-found; `сети` = networks; `активы` = assets; the closing lines report how many
-scheme/network combinations × addresses were checked and suggest raising `-n`
-or checking `-a`/`-p`/`-c` if the address should belong to this phrase.)
 
 In the second notice, after the networks have been polled, the assets of the
 found address are additionally shown, and if some network didn't respond, a
-`не проверено (ошибка RPC)` ("not checked, RPC error") line is shown with its
-name — so that "no assets" isn't mistaken for a confirmed zero balance.
+`not checked (RPC error)` line is shown with its name — so that "no assets"
+isn't mistaken for a confirmed zero balance.
 
 The address is printed in its canonical form, as produced by derivation: you
 can search in any case, and an EVM address will be displayed with checksum
@@ -209,7 +198,7 @@ once — that's one derivation row, so the networks are listed in a single
 entry rather than duplicated.
 
 If a found address could not be verified, the "Status" column will show both
-flags at once: `НАЙДЕН по --find; ОШИБКА: ...` ("found via --find; ERROR: ...").
+flags at once: `found via --find; ERROR: ...`.
 
 Also works together with `--dry-run`, if you just need to know whether an
 address belongs to this phrase and at what path it's derived — without a

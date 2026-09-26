@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-Seed Analyzer — деривация адресов из BIP39 seed-фразы и проверка балансов.
+Seed Analyzer — derives addresses from a BIP39 seed phrase and checks balances.
 
-Схемы (дефолты совпадают с https://iancoleman.io/bip39/):
-  EVM  BIP44   m/44'/60'/0'/0/i    один адрес проверяется во всех EVM-сетях
+Schemes (defaults match https://iancoleman.io/bip39/):
+  EVM  BIP44   m/44'/60'/0'/0/i    one address is checked across all EVM networks
   TRX  BIP44   m/44'/195'/0'/0/i
   BTC  BIP44   m/44'/0'/0'/0/i     P2PKH   (1...)
   BTC  BIP49   m/49'/0'/0'/0/i     P2SH    (3...)
   BTC  BIP84   m/84'/0'/0'/0/i     P2WPKH  (bc1...)
-  BTC  BIP32   m/0/i               P2PKH   (1...)    — вкладка BIP32, path по умолчанию m/0
-  BTC  BIP141  m/0/i               P2SH    (3...)    — вкладка BIP141, semantics "P2WPKH nested in P2SH"
+  BTC  BIP32   m/0/i               P2PKH   (1...)    — BIP32 tab, default path m/0
+  BTC  BIP141  m/0/i               P2SH    (3...)    — BIP141 tab, semantics "P2WPKH nested in P2SH"
 
-EVM-сети: Ethereum, Arbitrum, Base, Polygon, Avalanche, OP Mainnet —
-нативная монета + USDC/USDT (+ DAI / WETH / мостовые .e-версии там, где есть).
+EVM networks: Ethereum, Arbitrum, Base, Polygon, Avalanche, OP Mainnet —
+native coin + USDC/USDT (+ DAI / WETH / bridged .e versions where available).
 
-Результат — xlsx: лист "Addresses" (пустые адреса скрыты) и лист "Summary".
+Output — xlsx: "Addresses" sheet (empty addresses hidden) and "Summary" sheet.
 
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python seed_analyzer.py          # фраза вводится скрытым промптом
+.venv/bin/python seed_analyzer.py          # phrase entered via a hidden prompt
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ from bip_utils import (
     WifEncoder,
 )
 
-# ---------------------------------------------------------------- конфигурация
+# ---------------------------------------------------------------- configuration
 
 TRON_API = "https://api.trongrid.io"
 BTC_API = "https://blockstream.info/api"
@@ -66,10 +66,10 @@ class EvmChain:
     chain_id: int
     rpc: str
     symbol: str
-    tokens: dict[str, tuple[str, int]]  # символ -> (контракт, decimals)
+    tokens: dict[str, tuple[str, int]]  # symbol -> (contract, decimals)
 
 
-# Адрес EVM один и тот же во всех сетях, отличаются только RPC и контракты токенов.
+# The EVM address is the same across all networks; only the RPC and token contracts differ.
 EVM_CHAINS: dict[str, EvmChain] = {
     "eth": EvmChain(
         "eth", "Ethereum", 1, "https://ethereum-rpc.publicnode.com", "ETH",
@@ -131,7 +131,7 @@ CHAIN_ALIASES = {
 }
 NON_EVM = ("trx", "btc")
 
-# TRC20 с известными decimals — остальные выводим как есть
+# TRC20 tokens with known decimals — others are printed as-is
 TRC20_KNOWN = {
     "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": ("USDT", 6),
     "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8": ("USDC", 6),
@@ -142,7 +142,7 @@ BTC_P2SH_VER = CoinsConf.BitcoinMainNet.ParamByKey("p2sh_net_ver")
 BTC_WIF_VER = CoinsConf.BitcoinMainNet.ParamByKey("wif_net_ver")
 
 
-# ------------------------------------------------------------------- структуры
+# ------------------------------------------------------------------- data structures
 
 
 @dataclass
@@ -159,17 +159,17 @@ class Row:
     used: bool = False
     status: str = ""
     priv: str = ""
-    matched: bool = False  # совпал с --find
+    matched: bool = False  # matched via --find
     checker: Callable[["Fetcher", "Row"], None] | None = field(default=None, repr=False)
 
     @property
     def is_error(self) -> bool:
-        return self.status.startswith("ОШИБКА")
+        return self.status.startswith("ERROR")
 
     @property
     def status_text(self) -> str:
-        """Статус для отчёта: метка --find и ошибка RPC показываются вместе."""
-        parts = ["НАЙДЕН по --find"] if self.matched else []
+        """Status for the report: the --find flag and an RPC error are shown together."""
+        parts = ["found via --find"] if self.matched else []
         if self.status:
             parts.append(self.status)
         return "; ".join(parts)
@@ -180,11 +180,11 @@ class Row:
 
     @property
     def is_empty(self) -> bool:
-        """Пустой адрес: ни активов, ни истории, ни ошибки, не найден по --find."""
+        """Empty address: no assets, no history, no error, not found via --find."""
         return not (self.has_assets or self.used or self.is_error or self.matched)
 
 
-# ------------------------------------------------------------------- деривация
+# ------------------------------------------------------------------- derivation
 
 
 def derive_evm(seed: bytes, account: int, count: int) -> list[tuple[str, str, str]]:
@@ -206,7 +206,7 @@ def _bip_addresses(cls, coin, seed: bytes, account: int, count: int,
 
 
 def _btc_raw_addresses(seed: bytes, count: int, encoder, net_ver) -> list[tuple[str, str, str]]:
-    """Вкладки BIP32 и BIP141 из iancoleman: путь m/0, индекс — последний уровень."""
+    """BIP32 and BIP141 tabs from iancoleman: path m/0, index is the last level."""
     base = Bip32Slip10Secp256k1.FromSeed(seed).DerivePath("m/0")
     out = []
     for i in range(count):
@@ -253,11 +253,11 @@ def generate_rows(seed: bytes, account: int, chains: list[str], count: int,
     return rows
 
 
-# ----------------------------------------------------------------------- сеть
+# ----------------------------------------------------------------------- network
 
 
 class Fetcher:
-    """HTTP-клиент с глобальной задержкой между запросами."""
+    """HTTP client with a global delay between requests."""
 
     def __init__(self, delay: float):
         self.delay = delay
@@ -301,7 +301,7 @@ def fmt_amount(raw: int, decimals: int) -> str:
 
 
 def check_evm(chain: EvmChain, f: Fetcher, row: Row) -> None:
-    """Баланс, nonce и все токены сети — одним batch-запросом."""
+    """Balance, nonce, and all network tokens — in a single batch request."""
     calls = [
         {"jsonrpc": "2.0", "id": 0, "method": "eth_getBalance",
          "params": [row.address, "latest"]},
@@ -345,7 +345,7 @@ def check_trx(f: Fetcher, row: Row) -> None:
     data = (r.json() or {}).get("data") or []
     if not data:
         row.balance = Decimal(0)
-        row.status = "не активирован"
+        row.status = "not activated"
         return
 
     acc = data[0]
@@ -374,16 +374,11 @@ def check_btc(f: Fetcher, row: Row) -> None:
     row.used = bool(row.tx_count or sats)
 
 
-# ------------------------------------------------- имя отчёта и индикатор
+# ------------------------------------------------- report name and progress indicator
 
 
 def plural_rows(n: int) -> str:
-    tail, hundred = n % 10, n % 100
-    if tail == 1 and hundred != 11:
-        return "строка"
-    if 2 <= tail <= 4 and not 12 <= hundred <= 14:
-        return "строки"
-    return "строк"
+    return "row" if n == 1 else "rows"
 
 
 def fmt_duration(seconds: float) -> str:
@@ -391,14 +386,14 @@ def fmt_duration(seconds: float) -> str:
     h, rest = divmod(total, 3600)
     m, s = divmod(rest, 60)
     if h:
-        return f"{h}ч {m:02d}м"
+        return f"{h}h {m:02d}m"
     if m:
-        return f"{m}м {s:02d}с"
-    return f"{s}с"
+        return f"{m}m {s:02d}s"
+    return f"{s}s"
 
 
 def default_out_name(chains: list[str], count: int) -> str:
-    """seed_report_2026-09-23_14-05-33_all_n500.xlsx — отчёты не перетирают друг друга."""
+    """seed_report_2026-09-23_14-05-33_all_n500.xlsx — reports never overwrite each other."""
     keys = set(chains)
     if keys == set(EVM_CHAINS) | set(NON_EVM):
         tag = "all"
@@ -410,20 +405,20 @@ def default_out_name(chains: list[str], count: int) -> str:
 
 
 def unique_path(path: str, overwrite: bool) -> tuple[str, str | None]:
-    """Возвращает (путь, сообщение). Существующий файл не перезаписывается."""
+    """Returns (path, message). An existing file is never overwritten."""
     if overwrite or not os.path.exists(path):
         return path, None
     stem, ext = os.path.splitext(path)
     for i in range(2, 1000):
         candidate = f"{stem}_{i}{ext}"
         if not os.path.exists(candidate):
-            return candidate, (f"Файл {path} уже существует, сохраняю как {candidate} "
-                               f"(перезапись — ключ --overwrite).")
-    raise RuntimeError(f"не удалось подобрать свободное имя рядом с {path}")
+            return candidate, (f"File {path} already exists, saving as {candidate} instead "
+                               f"(use --overwrite to overwrite).")
+    raise RuntimeError(f"could not find a free name next to {path}")
 
 
 class Progress:
-    """Живая строка прогресса; постоянные строки — только для значимых адресов."""
+    """Live progress line; permanent lines are printed only for notable addresses."""
 
     def __init__(self, total: int):
         self.total = total
@@ -444,8 +439,8 @@ class Progress:
         elapsed = time.monotonic() - self.start
         eta = elapsed / n * (self.total - n) if n else 0.0
         text = (f"[{n}/{self.total}] {n / self.total * 100:5.1f}% | "
-                f"прошло {fmt_duration(elapsed)} | осталось ~{fmt_duration(eta)} | "
-                f"с активами: {found}")
+                f"elapsed {fmt_duration(elapsed)} | remaining ~{fmt_duration(eta)} | "
+                f"with assets: {found}")
         if self.tty:
             sys.stdout.write("\r" + text)
             sys.stdout.flush()
@@ -457,7 +452,7 @@ class Progress:
         self._clear()
 
 
-# ---------------------------------------------------------------------- вывод
+# ---------------------------------------------------------------------- output
 
 
 def write_xlsx(rows: list[Row], path: str, with_keys: bool, all_rows: list[Row]) -> None:
@@ -469,17 +464,17 @@ def write_xlsx(rows: list[Row], path: str, with_keys: bool, all_rows: list[Row])
     ws = wb.active
     ws.title = "Addresses"
 
-    headers = ["Сеть", "Схема", "Derivation Path", "#", "Адрес",
-               "Баланс", "Монета", "Транзакций", "Токены", "Использован", "Статус"]
+    headers = ["Network", "Scheme", "Derivation Path", "#", "Address",
+               "Balance", "Coin", "Tx Count", "Tokens", "Used", "Status"]
     if with_keys:
-        headers.append("Приватный ключ (WIF/hex)")
+        headers.append("Private Key (WIF/hex)")
     ws.append(headers)
 
     head_fill = PatternFill("solid", fgColor="1F3864")
-    hit_fill = PatternFill("solid", fgColor="C6EFCE")   # есть активы
-    used_fill = PatternFill("solid", fgColor="FFF2CC")  # была активность
-    err_fill = PatternFill("solid", fgColor="F8CBAD")   # ошибка запроса
-    find_fill = PatternFill("solid", fgColor="BDD7EE")  # найден по --find
+    hit_fill = PatternFill("solid", fgColor="C6EFCE")   # has assets
+    used_fill = PatternFill("solid", fgColor="FFF2CC")  # had activity
+    err_fill = PatternFill("solid", fgColor="F8CBAD")   # request error
+    find_fill = PatternFill("solid", fgColor="BDD7EE")  # found via --find
 
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF")
@@ -490,7 +485,7 @@ def write_xlsx(rows: list[Row], path: str, with_keys: bool, all_rows: list[Row])
         data = [row.network, row.scheme, row.path, row.index, row.address,
                 float(row.balance), row.symbol,
                 row.tx_count if row.tx_count is not None else "",
-                row.tokens, "да" if row.used else "нет", row.status_text]
+                row.tokens, "yes" if row.used else "no", row.status_text]
         if with_keys:
             data.append(row.priv)
         ws.append(data)
@@ -517,10 +512,10 @@ def write_xlsx(rows: list[Row], path: str, with_keys: bool, all_rows: list[Row])
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
 
-    # ---- Summary: считается по ПОЛНОМУ набору адресов, а не по отфильтрованному
+    # ---- Summary: computed over the FULL set of addresses, not the filtered one
     s = wb.create_sheet("Summary")
-    s.append(["Сеть", "Схема", "Проверено", "С историей", "С активами",
-              "Пустых (скрыто)", "Ошибок", "Суммарный баланс", "Монета"])
+    s.append(["Network", "Scheme", "Checked", "With History", "With Assets",
+              "Empty (hidden)", "Errors", "Total Balance", "Coin"])
     for c in s[1]:
         c.font = Font(bold=True, color="FFFFFF")
         c.fill = head_fill
@@ -549,12 +544,12 @@ def write_xlsx(rows: list[Row], path: str, with_keys: bool, all_rows: list[Row])
     wb.save(path)
 
 
-# ----------------------------------------------------------------- поиск --find
+# ----------------------------------------------------------------- --find search
 
 
 @dataclass
 class FindResult:
-    target: str             # как ввёл пользователь
+    target: str             # as entered by the user
     hits: list[Row] = field(default_factory=list)
 
     @property
@@ -563,7 +558,7 @@ class FindResult:
 
 
 def search_addresses(rows: list[Row], spec: str) -> list[FindResult]:
-    """Помечает строки, совпавшие с --find. Идёт по ПОЛНОМУ набору адресов."""
+    """Flags rows that matched --find. Runs over the FULL set of addresses."""
     results: list[FindResult] = []
     seen: set[str] = set()
     for raw in spec.split(","):
@@ -583,44 +578,44 @@ def search_addresses(rows: list[Row], spec: str) -> list[FindResult]:
 
 def print_find_report(results: list[FindResult], rows: list[Row],
                       checked: bool, args) -> None:
-    """Уведомление о результате поиска: печатается и после генерации, и в конце."""
+    """Search result notice: printed both after generation and at the end."""
     line = "─" * 78
     n_found = sum(1 for r in results if r.hits)
     print(f"\n{line}")
-    print(f"ПОИСК --find: найдено {n_found} из {len(results)} "
-          f"среди {len(rows)} сгенерированных адресов")
+    print(f"SEARCH --find: found {n_found} of {len(results)} "
+          f"among {len(rows)} generated addresses")
     print(line)
 
     for res in results:
         if not res.hits:
-            print(f"  ✗ НЕ НАЙДЕН   {res.target}")
+            print(f"  ✗ NOT FOUND  {res.target}")
             continue
 
-        # один EVM-адрес совпадает сразу в нескольких сетях — группируем по пути
+        # a single EVM address matches multiple networks at once — group by path
         groups: dict[tuple[str, str, int, str], list[Row]] = {}
         for r in res.hits:
             groups.setdefault((r.scheme, r.path, r.index, r.address), []).append(r)
 
         for (scheme, path, index, address), items in groups.items():
-            print(f"  ✓ НАЙДЕН      {address}")
-            print(f"                {scheme}  {path}  (индекс {index})")
-            print(f"                сети: {', '.join(i.network for i in items)}")
+            print(f"  ✓ FOUND      {address}")
+            print(f"                {scheme}  {path}  (index {index})")
+            print(f"                networks: {', '.join(i.network for i in items)}")
             if checked:
                 assets = [f"{i.network} {i.balance:.8f} {i.symbol}"
                           + (f", {i.tokens}" if i.tokens else "")
                           for i in items if i.has_assets]
                 errs = [i.network for i in items if i.is_error]
-                print(f"                активы: {'; '.join(assets) if assets else 'нет'}")
+                print(f"                assets: {'; '.join(assets) if assets else 'none'}")
                 if errs:
-                    print(f"                не проверено (ошибка RPC): {', '.join(errs)}")
+                    print(f"                not checked (RPC error): {', '.join(errs)}")
 
     if n_found < len(results):
         schemes = len({(r.network, r.scheme) for r in rows})
-        pw = "задан" if args.passphrase else "не задан"
-        print(f"  Проверено {schemes} схемо-сетей × {args.count} адресов, "
+        pw = "set" if args.passphrase else "not set"
+        print(f"  Checked {schemes} scheme/network combos × {args.count} addresses, "
               f"account' = {args.account}, passphrase {pw}.")
-        print(f"  Если адрес всё же от этой фразы — увеличьте -n, "
-              f"проверьте -a и -p, а также набор сетей в -c.")
+        print(f"  If the address does belong to this phrase — increase -n, "
+              f"check -a and -p, and the network set in -c.")
     print(line)
 
 
@@ -634,11 +629,11 @@ def read_mnemonic(args) -> str:
         with open(args.mnemonic_file, encoding="utf-8") as fh:
             return " ".join(fh.read().split())
     import getpass
-    return " ".join(getpass.getpass("Seed-фраза (ввод скрыт): ").split())
+    return " ".join(getpass.getpass("Seed phrase (hidden input): ").split())
 
 
 def parse_chains(spec: str) -> tuple[list[str], list[str]]:
-    """Возвращает (выбранные ключи в каноническом порядке, неизвестные)."""
+    """Returns (selected keys in canonical order, unknown ones)."""
     order = list(EVM_CHAINS) + list(NON_EVM)
     wanted: set[str] = set()
     unknown: list[str] = []
@@ -659,62 +654,62 @@ def parse_chains(spec: str) -> tuple[list[str], list[str]]:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Проверка первых N адресов из BIP39 seed-фразы: "
-                    "EVM-сети (Ethereum, Arbitrum, Base, Polygon, Avalanche, OP), Tron, Bitcoin.",
+        description="Check the first N addresses derived from a BIP39 seed phrase: "
+                    "EVM networks (Ethereum, Arbitrum, Base, Polygon, Avalanche, OP), Tron, Bitcoin.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Сети для -c: " + ", ".join(list(EVM_CHAINS) + list(NON_EVM))
-               + "; группы: evm, all",
+        epilog="Networks for -c: " + ", ".join(list(EVM_CHAINS) + list(NON_EVM))
+               + "; groups: evm, all",
     )
-    p.add_argument("-m", "--mnemonic", help="seed-фраза 12-24 слова (в кавычках)")
-    p.add_argument("-f", "--mnemonic-file", help="файл с seed-фразой")
-    p.add_argument("-p", "--passphrase", default="", help="BIP39 passphrase (доп. слово)")
+    p.add_argument("-m", "--mnemonic", help="seed phrase, 12-24 words (in quotes)")
+    p.add_argument("-f", "--mnemonic-file", help="file containing the seed phrase")
+    p.add_argument("-p", "--passphrase", default="", help="BIP39 passphrase (extra word)")
     p.add_argument("-n", "--count", type=int, default=50,
-                   help="сколько адресов на схему (по умолчанию 50)")
+                   help="how many addresses per scheme (default 50)")
     p.add_argument("-d", "--delay", type=float, default=3.0,
-                   help="задержка между запросами, сек (по умолчанию 3)")
+                   help="delay between requests, in seconds (default 3)")
     p.add_argument("-a", "--account", type=int, default=0,
-                   help="номер account' для BIP44/49/84 (по умолчанию 0)")
+                   help="account' number for BIP44/49/84 (default 0)")
     p.add_argument("-c", "--chains", default="all",
-                   help="сети через запятую или группа evm/all (по умолчанию all)")
+                   help="comma-separated networks or the evm/all group (default all)")
     p.add_argument("-o", "--out",
-                   help="имя xlsx-файла; по умолчанию генерируется как "
-                        "seed_report_<дата>_<время>_<сети>_n<кол-во>.xlsx")
+                   help="xlsx file name; auto-generated by default as "
+                        "seed_report_<date>_<time>_<networks>_n<count>.xlsx")
     p.add_argument("--overwrite", action="store_true",
-                   help="перезаписать существующий файл вместо добавления суффикса")
+                   help="overwrite the existing file instead of adding a suffix")
     p.add_argument("-v", "--verbose", action="store_true",
-                   help="печатать каждый проверенный адрес, а не только значимые")
+                   help="print every checked address, not just the notable ones")
     p.add_argument("--find", metavar="ADDR",
-                   help="искать адрес(а) через запятую среди сгенерированных; "
-                        "поиск идёт по полному набору, до скрытия пустых строк")
+                   help="search for address(es), comma-separated, among the generated ones; "
+                        "search runs over the full set, before hiding empty rows")
     p.add_argument("--keep-empty", action="store_true",
-                   help="не скрывать в отчёте строки с нулевыми активами и без истории")
+                   help="don't hide rows with zero assets and no history in the report")
     p.add_argument("--with-keys", action="store_true",
-                   help="ВНИМАНИЕ: выгрузить приватные ключи в xlsx")
+                   help="WARNING: export private keys to the xlsx")
     p.add_argument("--dry-run", action="store_true",
-                   help="только сгенерировать адреса, без обращения к сети")
+                   help="only generate addresses, without contacting the network")
     p.add_argument("--no-validate", action="store_true",
-                   help="не проверять контрольную сумму BIP39")
+                   help="skip the BIP39 checksum validation")
     args = p.parse_args()
 
     mnemonic = read_mnemonic(args)
     words = mnemonic.split()
     if len(words) not in (12, 15, 18, 21, 24):
-        print(f"Ошибка: ожидается 12/15/18/21/24 слова, получено {len(words)}.", file=sys.stderr)
+        print(f"Error: expected 12/15/18/21/24 words, got {len(words)}.", file=sys.stderr)
         return 2
     if not args.no_validate:
         try:
             Bip39MnemonicValidator().Validate(mnemonic)
         except Exception as e:
-            print(f"Ошибка: неверная seed-фраза ({e}). Отключить проверку: --no-validate",
+            print(f"Error: invalid seed phrase ({e}). Disable the check with: --no-validate",
                   file=sys.stderr)
             return 2
 
     chains, unknown = parse_chains(args.chains)
     if unknown:
-        print(f"Ошибка: неизвестные сети: {', '.join(unknown)}", file=sys.stderr)
+        print(f"Error: unknown networks: {', '.join(unknown)}", file=sys.stderr)
         return 2
     if not chains:
-        print("Ошибка: не выбрано ни одной сети.", file=sys.stderr)
+        print("Error: no networks selected.", file=sys.stderr)
         return 2
 
     if not args.out:
@@ -723,14 +718,14 @@ def main() -> int:
     seed = Bip39SeedGenerator(mnemonic).Generate(args.passphrase)
     all_rows = generate_rows(seed, args.account, chains, args.count, args.with_keys)
 
-    print(f"Слов: {len(words)} | адресов: {len(all_rows)}")
+    print(f"Words: {len(words)} | addresses: {len(all_rows)}")
     seen = set()
     for r in all_rows:
         if (r.network, r.scheme) not in seen:
             seen.add((r.network, r.scheme))
             print(f"  {r.network:11s} {r.scheme:6s} {r.path}")
 
-    # ---- поиск заданных адресов по ПОЛНОМУ набору, до скрытия пустых строк
+    # ---- search requested addresses over the FULL set, before hiding empty rows
     find_results: list[FindResult] = []
     if args.find:
         find_results = search_addresses(all_rows, args.find)
@@ -738,8 +733,8 @@ def main() -> int:
 
     if not args.dry_run:
         eta = len(all_rows) * args.delay
-        print(f"Задержка {args.delay:g} c между запросами, "
-              f"ожидаемое время ≈ {eta / 60:.1f} мин.\n")
+        print(f"Delay {args.delay:g}s between requests, "
+              f"estimated time ≈ {eta / 60:.1f} min.\n")
         f = Fetcher(args.delay)
         prog = Progress(len(all_rows))
         found = 0
@@ -754,20 +749,20 @@ def main() -> int:
                     prog.line(f"  {mark} {row.network:11s} {row.scheme:6s} "
                               f"{row.address:44s} {row.balance:.8f} {row.symbol}{extra}")
             except Exception as e:
-                row.status = f"ОШИБКА: {e}"
+                row.status = f"ERROR: {e}"
                 prog.line(f"  ! {row.network:11s} {row.scheme:6s} "
                           f"{row.address:44s} {row.status}", err=True)
             prog.tick(n, found)
         prog.finish()
     else:
-        print("(dry-run: сеть не опрашивается)\n")
+        print("(dry-run: network is not queried)\n")
         if args.find:
-            print(f"Полный список из {len(all_rows)} адресов — в отчёте.")
+            print(f"Full list of {len(all_rows)} addresses is in the report.")
         else:
             for row in all_rows:
                 print(f"{row.network:11s} {row.scheme:6s} {row.path:20s} {row.address}")
 
-    # ---- скрываем пустые строки (в dry-run фильтровать не по чему)
+    # ---- hide empty rows (nothing to filter in dry-run)
     if args.keep_empty or args.dry_run:
         rows = all_rows
     else:
@@ -776,21 +771,21 @@ def main() -> int:
     out_path, renamed = unique_path(args.out, args.overwrite)
     if renamed:
         print(f"\n{renamed}")
-    print(f"\nФормирую отчёт ({len(rows)} {plural_rows(len(rows))})…")
+    print(f"\nBuilding report ({len(rows)} {plural_rows(len(rows))})…")
     write_xlsx(rows, out_path, args.with_keys, all_rows)
 
     hits = [r for r in all_rows if r.has_assets]
     used = [r for r in all_rows if r.used]
     errs = [r for r in all_rows if r.is_error]
     hidden = len(all_rows) - len(rows)
-    print(f"\nГотово. Адресов с историей: {len(used)}, с активами: {len(hits)}, "
-          f"ошибок: {len(errs)}, скрыто пустых: {hidden}")
+    print(f"\nDone. Addresses with history: {len(used)}, with assets: {len(hits)}, "
+          f"errors: {len(errs)}, empty hidden: {hidden}")
     for r in hits:
         print(f"  {r.network} {r.scheme} {r.path}  {r.address}  "
               f"{r.balance:.8f} {r.symbol} {r.tokens}")
     if find_results:
         print_find_report(find_results, all_rows, checked=not args.dry_run, args=args)
-    print(f"\nОтчёт: {os.path.abspath(out_path)} "
+    print(f"\nReport: {os.path.abspath(out_path)} "
           f"({len(rows)} {plural_rows(len(rows))})")
     return 0
 
@@ -799,5 +794,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print("\nПрервано пользователем.", file=sys.stderr)
+        print("\nInterrupted by user.", file=sys.stderr)
         sys.exit(130)
