@@ -1,170 +1,182 @@
 # Seed Analyzer
 
-Скрипт принимает BIP39 seed-фразу (12/15/18/21/24 слова), выводит первые N адресов
-по семи схемам деривации, проверяет балансы через публичные RPC в шести EVM-сетях,
-Tron и Bitcoin и складывает результат в xlsx-отчёт.
+The script takes a BIP39 seed phrase (12/15/18/21/24 words), derives the first N
+addresses for seven derivation schemes, checks balances via public RPCs across
+six EVM networks, Tron and Bitcoin, and writes the result to an xlsx report.
 
-## Состав
+> **Note:** the tool's own console output and the generated xlsx report are in
+> Russian (hardcoded strings/column headers). Only this documentation has been
+> translated to English; example output blocks below are reproduced verbatim.
 
-| Файл | Назначение |
-|------|------------|
-| `seed_analyzer.py` | сам скрипт |
-| `requirements.txt` | зависимости: `bip_utils`, `openpyxl`, `requests` |
+## Contents
 
-## Схемы деривации
+| File | Purpose |
+|------|---------|
+| `seed_analyzer.py` | the script itself |
+| `requirements.txt` | dependencies: `bip_utils`, `openpyxl`, `requests` |
 
-| Сеть     | Схема  | Путь                 | Тип адреса              |
-|----------|--------|----------------------|-------------------------|
-| EVM      | BIP44  | `m/44'/60'/0'/0/i`   | `0x...`                 |
-| Tron     | BIP44  | `m/44'/195'/0'/0/i`  | `T...`                  |
-| Bitcoin  | BIP44  | `m/44'/0'/0'/0/i`    | P2PKH `1...`            |
-| Bitcoin  | BIP49  | `m/49'/0'/0'/0/i`    | P2SH-P2WPKH `3...`      |
-| Bitcoin  | BIP84  | `m/84'/0'/0'/0/i`    | P2WPKH `bc1...`         |
-| Bitcoin  | BIP32  | `m/0/i`              | P2PKH `1...`            |
+## Derivation schemes
+
+| Network  | Scheme | Path                 | Address type             |
+|----------|--------|----------------------|---------------------------|
+| EVM      | BIP44  | `m/44'/60'/0'/0/i`   | `0x...`                  |
+| Tron     | BIP44  | `m/44'/195'/0'/0/i`  | `T...`                   |
+| Bitcoin  | BIP44  | `m/44'/0'/0'/0/i`    | P2PKH `1...`             |
+| Bitcoin  | BIP49  | `m/49'/0'/0'/0/i`    | P2SH-P2WPKH `3...`       |
+| Bitcoin  | BIP84  | `m/84'/0'/0'/0/i`    | P2WPKH `bc1...`          |
+| Bitcoin  | BIP32  | `m/0/i`              | P2PKH `1...`             |
 | Bitcoin  | BIP141 | `m/0/i`              | P2WPKH nested in P2SH `3...` |
 
-`i` — индекс адреса от 0 до `--count - 1`. У BIP44/49/84 это последний уровень
-пути после `change`, у BIP32 и BIP141 — прямой потомок узла `m/0`.
+`i` is the address index from 0 to `--count - 1`. For BIP44/49/84 it's the last
+path level after `change`; for BIP32 and BIP141 it's a direct child of the
+`m/0` node.
 
-Пути и типы адресов для вкладок BIP32 и BIP141 взяты из дефолтов
-[iancoleman.io/bip39](https://iancoleman.io/bip39/): path `m/0`, script
-semantics «P2WPKH nested in P2SH». Номер account' у BIP44/49/84 меняется
-ключом `-a`.
+Paths and address types for the BIP32 and BIP141 tabs are taken from the
+[iancoleman.io/bip39](https://iancoleman.io/bip39/) defaults: path `m/0`,
+script semantics "P2WPKH nested in P2SH". The `account'` number for
+BIP44/49/84 is changed with the `-a` flag.
 
-Деривация сверена с эталонными векторами BIP39 для фразы
-`abandon abandon ... about` — все адреса совпадают.
+Derivation has been checked against the reference BIP39 test vectors for the
+phrase `abandon abandon ... about` — all addresses match.
 
-## EVM-сети
+## EVM networks
 
-EVM-адрес один и тот же во всех сетях, поэтому деривация выполняется один раз,
-а сам адрес проверяется в каждой выбранной сети отдельной строкой отчёта.
-Баланс, nonce и все токены сети берутся **одним** batch-запросом JSON-RPC:
-задержка тратится на адрес, а не на каждый токен.
+The EVM address is the same across all networks, so derivation happens once,
+and the address is checked in each selected network as a separate report row.
+Balance, nonce, and all network tokens are fetched with a **single** batch
+JSON-RPC request: the delay is spent per address, not per token.
 
-| Ключ      | Сеть       | chainId | Нативная | Токены                   | RPC |
-|-----------|------------|---------|----------|--------------------------|-----|
-| `eth`     | Ethereum   | 1       | ETH      | USDT, USDC, DAI          | `ethereum-rpc.publicnode.com` |
-| `arb`     | Arbitrum   | 42161   | ETH      | USDC, USDC.e, USDT       | `arbitrum-one-rpc.publicnode.com` |
-| `base`    | Base       | 8453    | ETH      | USDC, USDT               | `base-rpc.publicnode.com` |
-| `polygon` | Polygon    | 137     | POL      | USDC, USDC.e, USDT, WETH | `polygon-bor-rpc.publicnode.com` |
-| `avax`    | Avalanche  | 43114   | AVAX     | USDC, USDT, WETH.e       | `avalanche-c-chain-rpc.publicnode.com` |
-| `op`      | OP Mainnet | 10      | ETH      | USDC, USDC.e, USDT       | `optimism-rpc.publicnode.com` |
+| Key       | Network    | chainId | Native | Tokens                   | RPC |
+|-----------|------------|---------|--------|--------------------------|-----|
+| `eth`     | Ethereum   | 1       | ETH    | USDT, USDC, DAI          | `ethereum-rpc.publicnode.com` |
+| `arb`     | Arbitrum   | 42161   | ETH    | USDC, USDC.e, USDT       | `arbitrum-one-rpc.publicnode.com` |
+| `base`    | Base       | 8453    | ETH    | USDC, USDT               | `base-rpc.publicnode.com` |
+| `polygon` | Polygon    | 137     | POL    | USDC, USDC.e, USDT, WETH | `polygon-bor-rpc.publicnode.com` |
+| `avax`    | Avalanche  | 43114   | AVAX   | USDC, USDT, WETH.e       | `avalanche-c-chain-rpc.publicnode.com` |
+| `op`      | OP Mainnet | 10      | ETH    | USDC, USDC.e, USDT       | `optimism-rpc.publicnode.com` |
 
-Где ETH не является нативной монетой (Polygon, Avalanche), проверяется её
-обёрнутая версия — WETH и WETH.e. Мостовые `.e`-версии USDC проверяются наравне
-с нативными: на этих сетях у кошельков постарше баланс чаще лежит именно в них.
+Where ETH is not the native coin (Polygon, Avalanche), its wrapped version is
+checked instead — WETH and WETH.e. Bridged `.e` versions of USDC are checked
+on equal footing with the native ones: on these networks, older wallets more
+often hold their balance there.
 
-Все 18 контрактов сверены on-chain вызовами `symbol()` и `decimals()`, chainId
-каждого RPC тоже проверен. На Arbitrum и Polygon `symbol()` у USDT отдаёт
-`USD₮0` / `USDT0` — это ребрендинг Tether, контракт остался каноническим.
+All 18 contracts have been verified on-chain via `symbol()` and `decimals()`
+calls, and each RPC's chainId has been checked too. On Arbitrum and Polygon,
+USDT's `symbol()` returns `USD₮0` / `USDT0` — this is a Tether rebrand, the
+contract itself remains canonical.
 
-**Ключи сетей для `-c`:** `eth`, `arb`, `base`, `polygon`, `avax`, `op`, `trx`, `btc`.
-**Алиасы:** `ethereum`, `mainnet`, `arbitrum`, `arbitrum-one`, `matic`, `pol`,
+**Network keys for `-c`:** `eth`, `arb`, `base`, `polygon`, `avax`, `op`, `trx`, `btc`.
+**Aliases:** `ethereum`, `mainnet`, `arbitrum`, `arbitrum-one`, `matic`, `pol`,
 `avalanche`, `avalanche-c`, `optimism`, `op-mainnet`, `tron`, `bitcoin`.
-**Группы:** `evm` — шесть EVM-сетей, `all` — они же плюс Tron и Bitcoin (по умолчанию).
+**Groups:** `evm` — the six EVM networks, `all` — the same plus Tron and Bitcoin (default).
 
-Регистр и лишние пробелы не важны, дубли схлопываются, порядок в отчёте всегда
-канонический — EVM-сети, затем Tron, затем Bitcoin.
+Case and extra whitespace don't matter, duplicates are collapsed, and the
+report order is always canonical — EVM networks, then Tron, then Bitcoin.
 
-## Установка
+## Installation
 
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-`bip_utils` не собирается на Python 3.14 (падает сборка зависимости `coincurve`),
-нужен 3.10–3.12.
+`bip_utils` doesn't build on Python 3.14 (the `coincurve` dependency build
+fails); you need 3.10–3.12.
 
-## Запуск
+## Usage
 
 ```bash
-# ввод фразы скрытым промптом (не попадёт в history)
+# enter the phrase via a hidden prompt (won't end up in shell history)
 .venv/bin/python seed_analyzer.py
 
-# только адреса, без запросов в сеть — быстрая сверка с генератором
+# addresses only, no network requests — quick check against a generator
 .venv/bin/python seed_analyzer.py --dry-run -m "..."
 
-# найти конкретный адрес среди сгенерированных
+# find a specific address among the generated ones
 .venv/bin/python seed_analyzer.py --dry-run -m "..." --find 0xAbC...
 
-# только L2 и Bitcoin, 100 адресов на схему
+# only L2s and Bitcoin, 100 addresses per scheme
 .venv/bin/python seed_analyzer.py -m "..." -c arb,base,op,btc -n 100
 ```
 
-### Ключи
+### Flags
 
-| Флаг | Назначение |
-|------|------------|
-| `-m, --mnemonic` | seed-фраза в кавычках |
-| `-f, --mnemonic-file` | файл с фразой |
-| `-p, --passphrase` | BIP39 passphrase (доп. слово) |
-| `-n, --count` | адресов на схему, по умолчанию 50 |
-| `-d, --delay` | задержка между запросами в секундах, по умолчанию 3 |
-| `-a, --account` | номер `account'` для BIP44/49/84, по умолчанию 0 |
-| `-c, --chains` | сети через запятую или группа `evm`/`all`, по умолчанию `all` |
-| `-o, --out` | имя xlsx; по умолчанию генерируется автоматически |
-| `--overwrite` | перезаписать существующий файл вместо суффикса |
-| `-v, --verbose` | печатать каждый проверенный адрес, а не только значимые |
-| `--find ADDR` | искать адрес(а) через запятую среди сгенерированных |
-| `--keep-empty` | не скрывать пустые строки в отчёте |
-| `--with-keys` | выгрузить приватные ключи в xlsx (по умолчанию выключено) |
-| `--dry-run` | только деривация, без сети |
-| `--no-validate` | пропустить проверку контрольной суммы BIP39 |
+| Flag | Purpose |
+|------|---------|
+| `-m, --mnemonic` | seed phrase in quotes |
+| `-f, --mnemonic-file` | file containing the phrase |
+| `-p, --passphrase` | BIP39 passphrase (extra word) |
+| `-n, --count` | addresses per scheme, default 50 |
+| `-d, --delay` | delay between requests in seconds, default 3 |
+| `-a, --account` | `account'` number for BIP44/49/84, default 0 |
+| `-c, --chains` | comma-separated networks or the `evm`/`all` group, default `all` |
+| `-o, --out` | xlsx file name; auto-generated by default |
+| `--overwrite` | overwrite the existing file instead of adding a suffix |
+| `-v, --verbose` | print every checked address, not just the notable ones |
+| `--find ADDR` | search for address(es), comma-separated, among the generated ones |
+| `--keep-empty` | don't hide empty rows in the report |
+| `--with-keys` | export private keys to the xlsx (disabled by default) |
+| `--dry-run` | derivation only, no network |
+| `--no-validate` | skip the BIP39 checksum validation |
 
-Фраза берётся из `-m`, иначе из `-f`, иначе запрашивается скрытым промптом.
-Число слов и контрольная сумма BIP39 проверяются до любых запросов в сеть.
+The phrase is taken from `-m`, otherwise from `-f`, otherwise it's requested
+via a hidden prompt. The word count and BIP39 checksum are validated before
+any network requests.
 
-Коды возврата: `0` — успех, `2` — ошибка аргументов или неверная фраза,
-`130` — прервано по Ctrl+C.
+Exit codes: `0` — success, `2` — argument error or invalid phrase,
+`130` — interrupted with Ctrl+C.
 
-### Имя отчёта
+### Report file name
 
-Без `-o` имя собирается автоматически, чтобы прогоны не затирали друг друга:
+Without `-o` the name is generated automatically so that runs don't overwrite
+each other:
 
 ```
 seed_report_2026-09-23_14-05-33_all_n500.xlsx
-            └─ дата ──┘ └─время┘ └сети┘ └кол-во┘
+            └── date ──┘ └time─┘ └net┘ └count┘
 ```
 
-В блоке сетей стоит `all`, `evm` или перечисление выбранных ключей через дефис
-(`base-btc`, `arb-base-op-btc`). Имя фразы или что-либо производное от неё в
-название не попадает.
+The networks segment contains `all`, `evm`, or a hyphen-separated list of the
+selected keys (`base-btc`, `arb-base-op-btc`). The phrase itself, or anything
+derived from it, never ends up in the file name.
 
-Существующий файл никогда не перезаписывается: и при автоимени, и при явном `-o`
-к имени добавляется `_2`, `_3` и так далее, о чём печатается сообщение.
-Перезапись — ключом `--overwrite`. В конце работы печатается абсолютный путь.
+An existing file is never overwritten: both with an auto-generated name and
+with an explicit `-o`, `_2`, `_3`, etc. is appended to the name, and a message
+is printed about it. Use `--overwrite` to overwrite instead. The absolute path
+is printed when the run finishes.
 
-### Индикатор прогресса
+### Progress indicator
 
-Сетевой прогон печатает живую строку, которая обновляется на месте:
+A network run prints a live line that updates in place (actual output, in Russian):
 
 ```
 [247/600]  41.2% | прошло 12м 21с | осталось ~17м 39с | с активами: 3
 ```
 
-Оценка остатка считается по фактической скорости, а не по `--delay`, поэтому
-учитывает ретраи и медленные RPC. Отдельными строками в журнале остаются только
-значимые адреса — с историей, с активами, с ошибкой запроса или найденные по
-`--find`; пустые в вывод не попадают. Раньше печаталась строка на каждый адрес,
-то есть 6000 строк при `-n 500`.
+(`elapsed 12m 21s | remaining ~17m 39s | with assets: 3`)
 
-Ключ `-v` возвращает прежнее поведение — строку на каждый проверенный адрес.
-Если вывод перенаправлен в файл, живая строка заменяется обычной записью каждые
-25 адресов, без управляющих символов.
+The remaining-time estimate is based on actual throughput rather than
+`--delay`, so it accounts for retries and slow RPCs. Only notable addresses
+get their own log line — those with history, with assets, with a request
+error, or found via `--find`; empty ones don't appear in the output.
+Previously a line was printed for every address, i.e. 6000 lines at `-n 500`.
 
-### Поиск адреса: `--find`
+The `-v` flag restores the old behavior — a line for every checked address.
+If output is redirected to a file, the live line is replaced with a plain
+entry every 25 addresses, with no control characters.
 
-Принимает один адрес или несколько через запятую, регистр не важен.
-Поиск идёт по **полному** набору сгенерированных адресов, сразу после деривации
-и **до** скрытия пустых строк, поэтому найденный адрес попадает в отчёт всегда —
-даже если он пуст и не имеет истории. В отчёте такая строка подсвечена голубым
-и помечена в колонке «Статус».
+### Address search: `--find`
 
-Уведомление о результате печатается **дважды**: сразу после генерации адресов
-и ещё раз в конце прогона — иначе за сотнями строк прогресса его не видно.
-По каждому искомому адресу выводится `✓ НАЙДЕН` со схемой, путём, индексом и
-списком сетей либо `✗ НЕ НАЙДЕН`:
+Accepts one address or several comma-separated, case-insensitive. The search
+runs over the **full** set of generated addresses, right after derivation and
+**before** empty rows are hidden, so a found address always ends up in the
+report — even if it's empty and has no history. Such a row is highlighted in
+blue in the report and flagged in the "Status" column.
+
+The result notice is printed **twice**: right after address generation and
+again at the end of the run — otherwise it would get lost among hundreds of
+progress lines. For each searched address, a found/not-found line is printed
+with the scheme, path, index, and list of networks (actual output, in Russian):
 
 ```
 ──────────────────────────────────────────────────────────────────────────────
@@ -180,95 +192,104 @@ seed_report_2026-09-23_14-05-33_all_n500.xlsx
 ──────────────────────────────────────────────────────────────────────────────
 ```
 
-Во втором уведомлении, после опроса сетей, дополнительно показываются активы
-найденного адреса и, если какая-то сеть не ответила, строка
-`не проверено (ошибка RPC)` с её именем — чтобы «активы: нет» не было принято
-за достоверный ноль.
+(`ПОИСК --find` = search results; `✓ НАЙДЕН` / `✗ НЕ НАЙДЕН` = found / not
+found; `сети` = networks; `активы` = assets; the closing lines report how many
+scheme/network combinations × addresses were checked and suggest raising `-n`
+or checking `-a`/`-p`/`-c` if the address should belong to this phrase.)
 
-Адрес печатается в каноническом виде, как его выдала деривация: искать можно
-в любом регистре, EVM-адрес отобразится с checksum-регистром. Один EVM-адрес
-совпадает сразу во всех выбранных EVM-сетях — это одна строка деривации,
-поэтому сети перечисляются в одной записи, а не дублируются.
+In the second notice, after the networks have been polled, the assets of the
+found address are additionally shown, and if some network didn't respond, a
+`не проверено (ошибка RPC)` ("not checked, RPC error") line is shown with its
+name — so that "no assets" isn't mistaken for a confirmed zero balance.
 
-Если найденный адрес не удалось проверить, в колонке «Статус» будут обе
-пометки сразу: `НАЙДЕН по --find; ОШИБКА: ...`.
+The address is printed in its canonical form, as produced by derivation: you
+can search in any case, and an EVM address will be displayed with checksum
+casing. A single EVM address matches across all selected EVM networks at
+once — that's one derivation row, so the networks are listed in a single
+entry rather than duplicated.
 
-Работает и вместе с `--dry-run`, если нужно просто узнать, принадлежит ли адрес
-этой фразе и по какому пути он выводится, — без единого запроса в сеть. В этом
-режиме связка `--dry-run --find` не печатает построчный список адресов: при
-`-n 500` это 6000 строк, которые полностью скрывают уведомление. Полный список
-остаётся в xlsx. Без `--find` список печатается как раньше.
+If a found address could not be verified, the "Status" column will show both
+flags at once: `НАЙДЕН по --find; ОШИБКА: ...` ("found via --find; ERROR: ...").
 
-Без `--find` никаких уведомлений о поиске не печатается.
+Also works together with `--dry-run`, if you just need to know whether an
+address belongs to this phrase and at what path it's derived — without a
+single network request. In this mode, `--dry-run --find` does not print the
+line-by-line address list: at `-n 500` that's 6000 lines, which would
+completely bury the notice. The full list still ends up in the xlsx. Without
+`--find`, the list is printed as before.
 
-### Скрытие пустых строк
+Without `--find`, no search notices are printed.
 
-По умолчанию из листа `Addresses` убираются строки, где нет ни активов, ни
-истории транзакций. Строка остаётся, если выполнено хотя бы одно условие:
+### Hiding empty rows
 
-- ненулевой баланс нативной монеты;
-- ненулевой баланс любого из проверяемых токенов;
-- была активность — nonce > 0 в EVM, tx_count > 0 в Bitcoin, активированный
-  аккаунт в Tron;
-- запрос завершился ошибкой (иначе отвалившийся RPC выглядел бы как пустой адрес);
-- адрес совпал с `--find`.
+By default, rows with no assets and no transaction history are removed from
+the `Addresses` sheet. A row stays if at least one of these holds:
 
-Отключается через `--keep-empty`. В режиме `--dry-run` фильтр не применяется —
-фильтровать не по чему. Лист `Summary` всегда считается по полному набору
-адресов и отдельной колонкой показывает, сколько строк скрыто.
+- a nonzero native coin balance;
+- a nonzero balance of any checked token;
+- there was activity — nonce > 0 on EVM, tx_count > 0 on Bitcoin, an activated
+  account on Tron;
+- the request failed (otherwise a broken RPC would look like an empty address);
+- the address matched `--find`.
 
-## Публичные RPC и время работы
+Disabled via `--keep-empty`. In `--dry-run` mode the filter isn't applied —
+there's nothing to filter by. The `Summary` sheet is always computed over the
+full set of addresses and shows, in a separate column, how many rows were hidden.
 
-| Сеть | Endpoint | Что берём |
-|------|----------|-----------|
-| EVM  | `publicnode.com` (см. таблицу выше) | баланс, nonce, ERC20 — одним batch-запросом |
-| Tron | `api.trongrid.io` | баланс TRX, все TRC20 |
-| Bitcoin | `blockstream.info/api` | баланс (chain + mempool), число транзакций |
+## Public RPCs and run time
 
-Задержка соблюдается глобально между **всеми** HTTP-запросами: один запрос на
-строку отчёта. Ретраи (до 3 попыток на таймаут, 429 и 5xx) идут с той же
-задержкой, поэтому проблемный RPC растягивает прогон.
+| Network | Endpoint | What's fetched |
+|---------|----------|-----------------|
+| EVM  | `publicnode.com` (see table above) | balance, nonce, ERC20 — in a single batch request |
+| Tron | `api.trongrid.io` | TRX balance, all TRC20 |
+| Bitcoin | `blockstream.info/api` | balance (chain + mempool), transaction count |
 
-Число запросов = (число выбранных EVM-сетей + Tron + 5 схем Bitcoin) × `--count`:
+The delay is enforced globally between **all** HTTP requests: one request per
+report row. Retries (up to 3 attempts on timeout, 429, and 5xx) use the same
+delay, so a problematic RPC will stretch out the run.
 
-| `-c` | Запросов при `-n 50` | Время при `-d 3` | Время при `-d 10` |
+Number of requests = (number of selected EVM networks + Tron + 5 Bitcoin schemes) × `--count`:
+
+| `-c` | Requests at `-n 50` | Time at `-d 3` | Time at `-d 10` |
 |------|----------------------|------------------|-------------------|
-| `all` | 600 | ≈ 30 мин | ≈ 100 мин |
-| `evm` | 300 | ≈ 15 мин | ≈ 50 мин |
-| `btc` | 250 | ≈ 12 мин | ≈ 42 мин |
-| `eth,trx` | 100 | ≈ 5 мин | ≈ 17 мин |
+| `all` | 600 | ≈ 30 min | ≈ 100 min |
+| `evm` | 300 | ≈ 15 min | ≈ 50 min |
+| `btc` | 250 | ≈ 12 min | ≈ 42 min |
+| `eth,trx` | 100 | ≈ 5 min | ≈ 17 min |
 
-Прогресс печатается построчно, `•` помечает адрес с историей. Прервать можно
-Ctrl+C, но тогда xlsx не сохраняется — для короткой пробы лучше уменьшить `-n`.
+Progress is printed line by line, `•` marks an address with history. You can
+interrupt with Ctrl+C, but then the xlsx isn't saved — for a short trial,
+lower `-n` instead.
 
-## Отчёт
+## Report
 
-**Лист `Addresses`** — по строке на пару адрес × сеть: сеть, схема, derivation
-path, индекс, адрес, баланс, монета, число транзакций, токены, признак
-использования, статус и, при `--with-keys`, приватный ключ. Включены автофильтр
-и закреплённая шапка.
+**`Addresses` sheet** — one row per address × network pair: network, scheme,
+derivation path, index, address, balance, coin, transaction count, tokens,
+usage flag, status, and, with `--with-keys`, the private key. Includes
+autofilter and a frozen header row.
 
-Подсветка строк:
+Row highlighting:
 
-| Цвет | Значение |
-|------|----------|
-| голубой | найден по `--find` |
-| зелёный | есть активы — баланс или токены |
-| жёлтый | адрес использовался, но сейчас пуст |
-| оранжевый | ошибка запроса, данные недостоверны |
+| Color | Meaning |
+|--------|---------|
+| blue | found via `--find` |
+| green | has assets — balance or tokens |
+| yellow | address was used but is currently empty |
+| orange | request error, data unreliable |
 
-**Лист `Summary`** — по каждой паре сеть/схема: сколько адресов проверено,
-с историей, с активами, сколько пустых скрыто, сколько ошибок, суммарный баланс.
-Считается по полному набору адресов, поэтому не зависит от фильтрации.
+**`Summary` sheet** — for each network/scheme pair: how many addresses were
+checked, how many had history, how many had assets, how many empty ones were
+hidden, how many errors, total balance. Computed over the full set of
+addresses, so it's unaffected by filtering.
 
-## Безопасность
+## Security
 
-- Фраза нигде не сохраняется; без `-m` вводится скрытым промптом, чтобы не
-  попасть в историю шелла.
-- В сеть уходят только адреса. Приватные ключи и фраза — никогда.
-- `--with-keys` кладёт приватные ключи в открытый xlsx — используйте только на
-  офлайн-машине и удаляйте файл после работы.
-- Публичные RPC видят ваш IP вместе со всем набором адресов, то есть связывают
-  их между собой. Если это важно — свой узел или VPN.
-- Скрипт только читает состояние сетей: ни одной транзакции он не подписывает
-  и не отправляет.
+- The phrase is never stored anywhere; without `-m` it's entered via a hidden
+  prompt so it doesn't end up in shell history.
+- Only addresses go out over the network. Private keys and the phrase — never.
+- `--with-keys` puts private keys into a plain xlsx file — use it only on an
+  offline machine and delete the file afterwards.
+- Public RPCs see your IP together with the whole set of addresses, i.e. they
+  can link them together. If that matters, use your own node or a VPN.
+- The script only reads network state: it never signs or sends a single
+  transaction.
